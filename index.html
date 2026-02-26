@@ -10,8 +10,6 @@ h1,h2 { color:#ffdd00; }
 input, button { padding:8px; margin:4px; border-radius:4px; border:none; }
 button { cursor:pointer; background:#ffdd00; color:#111; font-weight:bold; }
 button:hover { background:#ffaa00; }
-
-/* Sidebar */
 #adminSidebar { position:fixed; right:-300px; top:0; width:300px; height:100%; background:#222; border-left:1px solid #444; padding:20px; overflow-y:auto; transition:right 0.3s; }
 #adminSidebar.active { right:0; }
 </style>
@@ -48,28 +46,39 @@ button:hover { background:#ffaa00; }
 <h3>Pending Games</h3>
 <button onclick="loadPending()">Refresh Pending</button>
 <div id="pending"></div>
+<hr>
+<h3>Admin Upload</h3>
+<input id="adminTitle" placeholder="Game title"><br>
+<input id="adminDesc" placeholder="Description"><br>
+<input id="adminPrice" placeholder="Price"><br>
+<input id="adminFile" type="file" accept=".apk"><br>
+<button onclick="adminUploadGame()">Upload Game</button>
+<div id="adminUploadStatus"></div>
 </div>
 
 <script>
 const API = "http://localhost:3000";
 const ADMIN_EMAIL = "stormywilliams279@gmail.com";
 const ADMIN_KEY = "SuperSecret123";
+let isAdminLoggedIn = false;
 
-// Admin login → show sidebar
+// ---------------- Admin Login ----------------
 function checkAdmin(){
   const email=document.getElementById("adminEmail").value;
   const key=document.getElementById("adminKey").value;
   if(email===ADMIN_EMAIL && key===ADMIN_KEY){
+    isAdminLoggedIn=true;
     document.getElementById("adminSidebar").classList.add("active");
     document.getElementById("adminStatus").innerText="Admin verified!";
     loadPending();
   } else {
     alert("Incorrect admin email or key.");
+    isAdminLoggedIn=false;
     document.getElementById("adminSidebar").classList.remove("active");
   }
 }
 
-// Load approved games
+// ---------------- Load Approved Games ----------------
 async function loadGames(){
   const res=await fetch(API+"/store");
   const games=await res.json();
@@ -83,32 +92,50 @@ async function loadGames(){
   });
 }
 
-// Upload game
+// ---------------- Upload Game (User) ----------------
 async function uploadGame(){
   const fileInput=document.getElementById("file");
-  if(!fileInput.files[0]){
-    alert("Please select a file!");
-    return;
-  }
+  if(!fileInput.files[0]){ alert("Select a file!"); return; }
+
   const form=new FormData();
   form.append("title",document.getElementById("title").value);
   form.append("description",document.getElementById("desc").value);
   form.append("price",document.getElementById("price").value);
   form.append("developerEmail",document.getElementById("email").value);
-  form.append("gameFile",fileInput.files[0]);
 
   try{
     const res=await fetch(API+"/upload-game",{method:"POST",body:form});
     const data=await res.json();
-    document.getElementById("uploadStatus").innerText=data.success?"Upload successful! Awaiting admin verification.":"Error: "+data.error;
+    document.getElementById("uploadStatus").innerText=data.success?"Upload successful! Pending admin verification.":"Error: "+data.error;
     fileInput.value="";
-  } catch(err){
-    document.getElementById("uploadStatus").innerText="Error uploading file: "+err.message;
-  }
+  }catch(err){ document.getElementById("uploadStatus").innerText="Upload error: "+err.message; }
 }
 
-// Load pending games
+// ---------------- Admin Upload (Directly approved) ----------------
+async function adminUploadGame(){
+  if(!isAdminLoggedIn){ alert("Login as admin first!"); return; }
+  const fileInput=document.getElementById("adminFile");
+  if(!fileInput.files[0]){ alert("Select a file!"); return; }
+
+  const form=new FormData();
+  form.append("title",document.getElementById("adminTitle").value);
+  form.append("description",document.getElementById("adminDesc").value);
+  form.append("price",document.getElementById("adminPrice").value);
+  form.append("developerEmail",ADMIN_EMAIL);
+  form.append("isAdmin","true"); // mark admin upload
+
+  try{
+    const res=await fetch(API+"/upload-game",{method:"POST",body:form});
+    const data=await res.json();
+    document.getElementById("adminUploadStatus").innerText=data.success?"Admin upload successful and live!":"Error: "+data.error;
+    fileInput.value="";
+    loadGames();
+  }catch(err){ document.getElementById("adminUploadStatus").innerText="Upload error: "+err.message; }
+}
+
+// ---------------- Load Pending ----------------
 async function loadPending(){
+  if(!isAdminLoggedIn) return;
   const res=await fetch(API+"/pending");
   const games=await res.json();
   const el=document.getElementById("pending");
@@ -121,8 +148,9 @@ async function loadPending(){
   });
 }
 
-// Verify game (admin)
+// ---------------- Verify Game ----------------
 async function verifyGame(id){
+  if(!isAdminLoggedIn) return;
   const res=await fetch(API+"/verify-game/"+id,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -134,6 +162,5 @@ async function verifyGame(id){
   loadGames();
 }
 </script>
-
 </body>
 </html>
