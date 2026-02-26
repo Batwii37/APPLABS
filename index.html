@@ -42,32 +42,32 @@ button:hover { background:#ffaa00; }
 
 <hr>
 
+<h2>Upload Game</h2>
+<input id="title" placeholder="Game title"><br>
+<input id="desc" placeholder="Description"><br>
+<input id="price" placeholder="Price"><br>
+<input id="email" placeholder="Your email"><br>
+<input id="file" type="file"><br>
+<button onclick="uploadGame()">Upload Game</button>
+<div id="uploadStatus"></div>
+
+<hr>
+
 <h2>Admin Login</h2>
 <input id="adminEmail" placeholder="Admin email"><br>
 <input id="adminKey" placeholder="Admin key"><br>
 <button onclick="checkAdmin()">Enter Admin</button>
 <div id="adminStatus"></div>
 
-<!-- Admin Sidebar -->
 <div id="adminSidebar">
   <h2>Admin Panel</h2>
-  <h3>Upload Game</h3>
-  <input id="title" placeholder="Game title"><br>
-  <input id="desc" placeholder="Description"><br>
-  <input id="price" placeholder="Price"><br>
-  <input id="email" placeholder="Developer email"><br>
-  <input id="file" type="file"><br>
-  <button onclick="uploadGame()">Upload Game</button>
-  <div id="uploadStatus"></div>
-
-  <hr>
   <h3>Pending Games</h3>
   <button onclick="loadPending()">Refresh Pending</button>
   <div id="pending"></div>
 </div>
 
 <script>
-const API = "http://localhost:3000"; // replace with your backend URL when deployed
+const API = "http://localhost:3000";
 const ADMIN_EMAIL = "stormywilliams279@gmail.com";
 const ADMIN_KEY = "SuperSecret123";
 
@@ -79,6 +79,7 @@ function checkAdmin() {
   if(email === ADMIN_EMAIL && key === ADMIN_KEY) {
     document.getElementById("adminSidebar").classList.add("active");
     document.getElementById("adminStatus").innerText = "Admin verified!";
+    loadPending();
   } else {
     alert("Incorrect admin email or key.");
     document.getElementById("adminSidebar").classList.remove("active");
@@ -115,7 +116,7 @@ async function uploadGame() {
 
   const data = await res.json();
   document.getElementById("uploadStatus").innerText =
-    data.success ? "Uploaded. Game ID: " + data.gameId : "Error: " + data.error;
+    data.success ? "Uploaded! Awaiting admin verification." : "Error: " + data.error;
 }
 
 // ------------------- Load Pending Games -------------------
@@ -127,7 +128,7 @@ async function loadPending() {
   games.forEach(g => {
     const div = document.createElement("div");
     div.className = "card";
-    div.innerHTML = `<h4>${g.title}</h4><button onclick="verifyGame('${g.id}')">Verify</button>`;
+    div.innerHTML = `<h4>${g.title}</h4><p>${g.description}</p><button onclick="verifyGame('${g.id}')">Verify</button>`;
     el.appendChild(div);
   });
 }
