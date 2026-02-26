@@ -4,13 +4,32 @@
 <meta charset="UTF-8">
 <title>GameStore Pro</title>
 <style>
-body { font-family: Arial; padding:20px; background:#111; color:white; }
+body { font-family: Arial; margin:0; padding:0; background:#111; color:white; }
 h1, h2 { color:#ffdd00; }
 .card { border:1px solid #444; padding:12px; margin-top:10px; border-radius:8px; background:#222; }
 input, button { padding:8px; margin:4px; border-radius:4px; border:none; }
 input { width: 200px; }
 button { cursor:pointer; background:#ffdd00; color:#111; font-weight:bold; }
 button:hover { background:#ffaa00; }
+
+/* Sidebar */
+#adminSidebar {
+  position: fixed;
+  right: -300px;
+  top: 0;
+  width: 300px;
+  height: 100%;
+  background:#222;
+  border-left:1px solid #444;
+  padding:20px;
+  overflow-y:auto;
+  transition: right 0.3s;
+  z-index: 1000;
+}
+
+#adminSidebar.active {
+  right:0;
+}
 </style>
 </head>
 <body>
@@ -23,33 +42,55 @@ button:hover { background:#ffaa00; }
 
 <hr>
 
-<h2>Upload Game</h2>
-<input id="title" placeholder="Game title"><br>
-<input id="desc" placeholder="Description"><br>
-<input id="price" placeholder="Price"><br>
-<input id="email" placeholder="Your email"><br>
-<input id="file" type="file"><br>
-<button onclick="uploadGame()">Upload Game</button>
-<div id="uploadStatus"></div>
-
-<hr>
-
-<h2>Admin Verification</h2>
+<h2>Admin Login</h2>
 <input id="adminEmail" placeholder="Admin email"><br>
 <input id="adminKey" placeholder="Admin key"><br>
-<button onclick="loadPending()">Load Pending</button>
-<div id="pending"></div>
+<button onclick="checkAdmin()">Enter Admin</button>
+<div id="adminStatus"></div>
+
+<!-- Admin Sidebar -->
+<div id="adminSidebar">
+  <h2>Admin Panel</h2>
+  <h3>Upload Game</h3>
+  <input id="title" placeholder="Game title"><br>
+  <input id="desc" placeholder="Description"><br>
+  <input id="price" placeholder="Price"><br>
+  <input id="email" placeholder="Developer email"><br>
+  <input id="file" type="file"><br>
+  <button onclick="uploadGame()">Upload Game</button>
+  <div id="uploadStatus"></div>
+
+  <hr>
+  <h3>Pending Games</h3>
+  <button onclick="loadPending()">Refresh Pending</button>
+  <div id="pending"></div>
+</div>
 
 <script>
-const API = "http://localhost:3000"; // Replace with your backend URL when online
+const API = "http://localhost:3000"; // replace with your backend URL when deployed
+const ADMIN_EMAIL = "stormywilliams279@gmail.com";
+const ADMIN_KEY = "SuperSecret123";
 
-// Load approved games
+// ------------------- Admin Login -------------------
+function checkAdmin() {
+  const email = document.getElementById("adminEmail").value;
+  const key = document.getElementById("adminKey").value;
+
+  if(email === ADMIN_EMAIL && key === ADMIN_KEY) {
+    document.getElementById("adminSidebar").classList.add("active");
+    document.getElementById("adminStatus").innerText = "Admin verified!";
+  } else {
+    alert("Incorrect admin email or key.");
+    document.getElementById("adminSidebar").classList.remove("active");
+  }
+}
+
+// ------------------- Load Approved Games -------------------
 async function loadGames() {
   const res = await fetch(API + "/store");
   const games = await res.json();
   const el = document.getElementById("games");
   el.innerHTML = "";
-
   games.forEach(g => {
     const div = document.createElement("div");
     div.className = "card";
@@ -58,7 +99,7 @@ async function loadGames() {
   });
 }
 
-// Upload a new game
+// ------------------- Upload Game -------------------
 async function uploadGame() {
   const form = new FormData();
   form.append("title", document.getElementById("title").value);
@@ -77,38 +118,29 @@ async function uploadGame() {
     data.success ? "Uploaded. Game ID: " + data.gameId : "Error: " + data.error;
 }
 
-// Load pending games for admin verification
+// ------------------- Load Pending Games -------------------
 async function loadPending() {
   const res = await fetch(API + "/pending");
   const games = await res.json();
-  const adminEmail = document.getElementById("adminEmail").value;
-  const adminKey = document.getElementById("adminKey").value;
   const el = document.getElementById("pending");
   el.innerHTML = "";
-
   games.forEach(g => {
     const div = document.createElement("div");
     div.className = "card";
-    div.innerHTML = `
-      <h3>${g.title}</h3>
-      <button onclick="verifyGame('${g.id}', '${adminEmail}', '${adminKey}')">Verify</button>
-    `;
+    div.innerHTML = `<h4>${g.title}</h4><button onclick="verifyGame('${g.id}')">Verify</button>`;
     el.appendChild(div);
   });
 }
 
-// Verify a game
-async function verifyGame(id, email, key) {
+// ------------------- Verify Game -------------------
+async function verifyGame(id) {
   const res = await fetch(API + "/verify-game/" + id, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, key })
+    body: JSON.stringify({ email: ADMIN_EMAIL, key: ADMIN_KEY })
   });
-
   const data = await res.json();
-  if (!data.success) {
-    alert("Error: " + data.error);
-  }
+  if(!data.success) alert("Error: " + data.error);
   loadPending();
   loadGames();
 }
