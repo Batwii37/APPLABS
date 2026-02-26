@@ -1,10 +1,10 @@
-// server.js — GameStorePro: public uploads + admin verification
-
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
-const app = express();
+const path = require("path");
+const fs = require("fs");
 
+const app = express();
 app.use(cors());
 app.use(express.json());
 
@@ -12,18 +12,34 @@ app.use(express.json());
 const ADMIN_EMAIL = "stormywilliams279@gmail.com";
 const ADMIN_KEY = "SuperSecret123";
 
-// ------------------ FILE UPLOAD ------------------
-const upload = multer({ dest: "uploads/" });
+// ------------------ UPLOAD FOLDER ------------------
+const UPLOAD_DIR = path.join(__dirname, "uploads");
+if(!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
-// In-memory database
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname)
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    if(file.mimetype !== "application/vnd.android.package-archive"){
+      return cb(new Error("Only APK files are allowed"));
+    }
+    cb(null, true);
+  }
+});
+
+// ------------------ GAMES DATABASE ------------------
 const games = [];
 
-// ------------------ Upload Game (anyone) ------------------
+// ------------------ Upload Game (Anyone) ------------------
 app.post("/upload-game", upload.single("gameFile"), (req, res) => {
   const { title, description, price, developerEmail } = req.body;
 
-  if (!title || !developerEmail) {
-    return res.status(400).json({ error: "Missing title or email" });
+  if(!title || !developerEmail || !req.file){
+    return res.status(400).json({ error: "Missing fields or file" });
   }
 
   const newGame = {
@@ -32,31 +48,32 @@ app.post("/upload-game", upload.single("gameFile"), (req, res) => {
     description,
     price: Number(price || 0),
     developerEmail,
-    status: "pending", // pending until verified
-    filePath: req.file ? req.file.path : null,
+    status: "pending",
+    filePath: req.file.filename,
     createdAt: new Date()
   };
 
   games.push(newGame);
+
   res.json({
     success: true,
     gameId: newGame.id,
-    message: "Game uploaded! Awaiting admin verification."
+    message: "Upload successful! Awaiting admin verification."
   });
 });
 
-// ------------------ Verify Game (Admin only) ------------------
+// ------------------ Verify Game (Admin Only) ------------------
 app.post("/verify-game/:id", (req, res) => {
   const { email, key } = req.body;
 
-  if (email !== ADMIN_EMAIL || key !== ADMIN_KEY) {
+  if(email !== ADMIN_EMAIL || key !== ADMIN_KEY){
     return res.status(403).json({ error: "Not authorized" });
   }
 
   const game = games.find(g => g.id === req.params.id);
-  if (!game) return res.status(404).json({ error: "Game not found" });
+  if(!game) return res.status(404).json({ error: "Game not found" });
 
-  game.status = "approved"; // now it appears in store
+  game.status = "approved"; // moves to public store
   res.json({ success: true, message: "Game approved and live!" });
 });
 
@@ -66,13 +83,14 @@ app.get("/store", (req, res) => {
   res.json(approvedGames);
 });
 
-// ------------------ Pending Games (Admin panel) ------------------
+// ------------------ Pending Games (Admin Panel) ------------------
 app.get("/pending", (req, res) => {
   const pendingGames = games.filter(g => g.status === "pending");
   res.json(pendingGames);
 });
 
+// ------------------ Serve uploaded APKs ------------------
+app.use("/uploads", express.static(UPLOAD_DIR));
+
 // ------------------ Start Server ------------------
-app.listen(3000, () => {
-  console.log("GameStorePro backend running on http://localhost:3000");
-});
+app.listen(3000, () => console.log("GameStorePro backend running on http://localhost:3000"));
