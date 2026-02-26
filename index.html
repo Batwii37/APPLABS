@@ -5,9 +5,12 @@
 <title>GameStore Pro</title>
 <style>
 body { font-family: Arial; padding:20px; background:#111; color:white; }
-.card { border:1px solid #444; padding:12px; margin-top:10px; border-radius:8px; }
-input, button { padding:8px; margin:4px; }
-button { cursor:pointer; }
+h1, h2 { color:#ffdd00; }
+.card { border:1px solid #444; padding:12px; margin-top:10px; border-radius:8px; background:#222; }
+input, button { padding:8px; margin:4px; border-radius:4px; border:none; }
+input { width: 200px; }
+button { cursor:pointer; background:#ffdd00; color:#111; font-weight:bold; }
+button:hover { background:#ffaa00; }
 </style>
 </head>
 <body>
@@ -32,13 +35,15 @@ button { cursor:pointer; }
 <hr>
 
 <h2>Admin Verification</h2>
-<input id="adminEmail" placeholder="Admin email">
+<input id="adminEmail" placeholder="Admin email"><br>
+<input id="adminKey" placeholder="Admin key"><br>
 <button onclick="loadPending()">Load Pending</button>
 <div id="pending"></div>
 
 <script>
-const API = "http://localhost:3000";
+const API = "http://localhost:3000"; // Replace with your backend URL when online
 
+// Load approved games
 async function loadGames() {
   const res = await fetch(API + "/store");
   const games = await res.json();
@@ -53,6 +58,7 @@ async function loadGames() {
   });
 }
 
+// Upload a new game
 async function uploadGame() {
   const form = new FormData();
   form.append("title", document.getElementById("title").value);
@@ -68,13 +74,15 @@ async function uploadGame() {
 
   const data = await res.json();
   document.getElementById("uploadStatus").innerText =
-    "Uploaded. Game ID: " + data.gameId;
+    data.success ? "Uploaded. Game ID: " + data.gameId : "Error: " + data.error;
 }
 
+// Load pending games for admin verification
 async function loadPending() {
   const res = await fetch(API + "/pending");
   const games = await res.json();
   const adminEmail = document.getElementById("adminEmail").value;
+  const adminKey = document.getElementById("adminKey").value;
   const el = document.getElementById("pending");
   el.innerHTML = "";
 
@@ -83,18 +91,24 @@ async function loadPending() {
     div.className = "card";
     div.innerHTML = `
       <h3>${g.title}</h3>
-      <button onclick="verifyGame('${g.id}', '${adminEmail}')">Verify</button>
+      <button onclick="verifyGame('${g.id}', '${adminEmail}', '${adminKey}')">Verify</button>
     `;
     el.appendChild(div);
   });
 }
 
-async function verifyGame(id, email) {
-  await fetch(API + "/verify-game/" + id, {
+// Verify a game
+async function verifyGame(id, email, key) {
+  const res = await fetch(API + "/verify-game/" + id, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email })
+    body: JSON.stringify({ email, key })
   });
+
+  const data = await res.json();
+  if (!data.success) {
+    alert("Error: " + data.error);
+  }
   loadPending();
   loadGames();
 }
